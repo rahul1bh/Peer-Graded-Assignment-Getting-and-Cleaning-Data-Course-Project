@@ -1,41 +1,38 @@
 # Submission for the Coursera Data Science Specialization in July 2018
 # Peer Graded Assignment: Getting and Cleaning Data Course Project
-# This script requires dplyr package
 
-# Read the feature list and activity names ..
-features_list <- read.table("features.txt", col.names = c("no","features"))
-activity <- read.table("activity_labels.txt", col.names = c("label", "activity"))
+featureNames <- read.table("features.txt")
+activityLabels <- read.table("activity_labels.txt", header = FALSE)
+subjectTrain <- read.table("train/subject_train.txt", header = FALSE)
+activityTrain <- read.table("train/y_train.txt", header = FALSE)
+featuresTrain <- read.table("train/X_train.txt", header = FALSE)
+subjectTest <- read.table("test/subject_test.txt", header = FALSE)
+activityTest <- read.table("test/y_test.txt", header = FALSE)
+featuresTest <- read.table("test/X_test.txt", header = FALSE)
 
+subject <- rbind(subjectTrain, subjectTest)
+activity <- rbind(activityTrain, activityTest)
+features <- rbind(featuresTrain, featuresTest)
 
-# Read all the test dataset and combine into one dataframe ..
-subject_test <- read.table("test/subject_test.txt", col.names = "subject")
-x_test <- read.table("test/X_test.txt", col.names = features_list$features)
-y_test <- read.table("test/Y_test.txt", col.names = "label")
-y_test_label <- left_join(y_test, activity, by = "label")
+colnames(features) <- t(featureNames[2])
+colnames(activity) <- "Activity"
+colnames(subject) <- "Subject"
 
-tidy_test <- cbind(subject_test, y_test_label, x_test)
-tidy_test <- select(tidy_test, -label)
+completeData <- cbind(features,activity,subject)
+columnsWithMeanSTD <- grep(".*Mean.*|.*Std.*", names(completeData), ignore.case=TRUE)
+requiredColumns <- c(columnsWithMeanSTD, 562, 563)
+dim(completeData)
 
+extractedData$Activity <- as.character(extractedData$Activity)
 
-# Read the train dataset ..
-subject_train <- read.table("train/subject_train.txt", col.names = "subject")
-x_train <- read.table("train/X_train.txt", col.names = features_list$features)
-y_train <- read.table("train/Y_train.txt", col.names = "label")
-y_train_label <- left_join(y_train, activity, by = "label")
+for (i in 1:6){
+  extractedData$Activity[extractedData$Activity == i] <- as.character(activityLabels[i,2])
+}
+extractedData$Activity <- as.factor(extractedData$Activity)
+names(extractedData)
+extractedData$Subject <- as.factor(extractedData$Subject)
+extractedData <- data.table(extractedData)
+tidyData <- aggregate(. ~Subject + Activity, extractedData, mean)
+tidyData <- tidyData[order(tidyData$Subject,tidyData$Activity),]
 
-tidy_train <- cbind(subject_train, y_train_label, x_train)
-tidy_train <- select(tidy_train, -label)
-
-# Combine the test and train data set ..
-tidy_set <- rbind(tidy_test, tidy_train)
-
-# Extract mean and standard deviation ..
-tidy_mean_std <- select(tidy_set, contains("mean"), contains("std"))
-
-# Averaging all variable by each subject each activity ..
-tidy_mean_std$subject <- as.factor(tidy_set$subject)
-tidy_mean_std$activity <- as.factor(tidy_set$activity)
-
-tidy_avg <- tidy_mean_std %>%
-  group_by(subject, activity) %>%
-  summarise_each(funs(mean))
+write.table(tidyData, file = "Tidy.txt", row.names = FALSE)
